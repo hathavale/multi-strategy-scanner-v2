@@ -7,3 +7,32 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.0
+      - key: FLASK_ENV
+        value: production
+      - key: FLASK_DEBUG
+        value: "False"
+      - key: MAX_SYMBOLS_PER_SCAN
+        value: "10"
+      - key: API_TIMEOUT
+        value: "30"
+      - key: CACHE_TTL
+        value: "300"
+      - key: ENABLE_RATE_LIMITING
+        value: "True"
+      - key: RATE_LIMIT_PER_MINUTE
+        value: "180"
+      - key: LOG_LEVEL
+        value: INFO
+      # Secrets - set these in Render Dashboard, not here!
+      - key: DATABASE_URL
+        sync: false  # Set manually in dashboard
+      - key: ALPHAVANTAGE_API_KEY
+        sync: false  # Set manually in dashboard
+      - key: XAI_API_KEY
+        sync: false  # Set manually in dashboard
+      - key: ANTHROPIC_API_KEY
+        sync: false  # Set manually in dashboard
+      - key: GEMINI_API_KEY
+        sync: false  # Set manually in dashboard
+      - key: SECRET_KEY
+        sync: false  # Set manually in dashboard
