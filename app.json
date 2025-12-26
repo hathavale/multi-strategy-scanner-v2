@@ -1,0 +1,62 @@
+{
+  "name": "Multi-Strategy Options Scanner",
+  "description": "Advanced options strategy analysis and scanning application",
+  "repository": "https://github.com/your-username/multi-strategy-options-scanner",
+  "logo": "https://cdn.jsdelivr.net/npm/emoji-datasource-apple@7.0.2/img/apple/64/1f4c8.png",
+  "keywords": ["python", "flask", "options", "trading", "finance", "postgresql"],
+  "success_url": "/",
+  "env": {
+    "FLASK_ENV": {
+      "description": "Flask environment (production/development)",
+      "value": "production",
+      "required": true
+    },
+    "SECRET_KEY": {
+      "description": "Secret key for Flask session management",
+      "generator": "secret",
+      "required": true
+    },
+    "ALPHAVANTAGE_API_KEY": {
+      "description": "Alpha Vantage API key for market data",
+      "required": true
+    },
+    "FLASK_DEBUG": {
+      "description": "Enable Flask debug mode (set to False for production)",
+      "value": "False",
+      "required": false
+    },
+    "MAX_SYMBOLS_PER_SCAN": {
+      "description": "Maximum number of symbols to scan at once",
+      "value": "10",
+      "required": false
+    },
+    "ENABLE_RATE_LIMITING": {
+      "description": "Enable API rate limiting",
+      "value": "True",
+      "required": false
+    },
+    "RATE_LIMIT_PER_MINUTE": {
+      "description": "Maximum API requests per minute",
+      "value": "60",
+      "required": false
+    }
+  },
+  "formation": {
+    "web": {
+      "quantity": 1,
+      "size": "basic"
+    }
+  },
+  "addons": [
+    {
+      "plan": "heroku-postgresql:mini",
+      "as": "DATABASE"
+    }
+  ],
+  "buildpacks": [
+    {
+      "url": "heroku/python"
+    }
+  ],
+  "stack": "heroku-22"
+}

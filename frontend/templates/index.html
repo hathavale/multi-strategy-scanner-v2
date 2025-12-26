@@ -1,0 +1,769 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multi-Strategy Options Scanner</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <h1>📈 Multi-Strategy Options Scanner</h1>
+            <p class="subtitle">Advanced options strategy analysis and scanning</p>
+        </header>
+
+        <!-- Navigation Tabs -->
+        <nav class="tabs">
+            <button class="tab-button active" data-tab="scanner">Scanner</button>
+            <button class="tab-button" data-tab="favorites">Favorites</button>
+            <button class="tab-button" data-tab="filters">Filter Criteria</button>
+            <button class="tab-button" data-tab="pipeline">Pipeline</button>
+            <button class="tab-button" data-tab="ai-assistant">🤖 AI Assistant</button>
+        </nav>
+
+        <!-- Scanner Tab -->
+        <div id="scanner-tab" class="tab-content active">
+            <div class="scan-form">
+                <h2>🔍 Strategy Scanner</h2>
+                
+                <form id="scan-form">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="symbol">Symbol</label>
+                            <input type="text" id="symbol" name="symbol" placeholder="e.g., AAPL" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="strategy">Strategy</label>
+                            <select id="strategy" name="strategy" required>
+                                <option value="">Select strategy...</option>
+                                <!-- Populated dynamically -->
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="filter-preset">Filter Preset</label>
+                            <div class="preset-select-group">
+                                <select id="filter-preset" name="filter-preset">
+                                    <option value="">Default</option>
+                                    <!-- Populated dynamically from saved filters -->
+                                </select>
+                                <button type="button" id="save-current-preset" class="btn btn-sm btn-secondary" title="Save current settings as preset">
+                                    💾
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Advanced Filter Section (collapsible) -->
+                    <div class="filter-section" id="filter-section" style="display: none;">
+                        <h3>Advanced Filter Criteria</h3>
+                        <div id="filter-inputs" class="filter-inputs">
+                            <!-- Dynamically populated based on selected strategy -->
+                        </div>
+                        
+                        <!-- Scoring Weights Section -->
+                        <div id="scoring-weights-section" style="margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--border-color);">
+                            <h4 style="margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
+                                ⚖️ Score Weights
+                                <span style="font-size: 0.8rem; font-weight: normal; color: var(--text-secondary);">(must sum to 1.0)</span>
+                            </h4>
+                            <div id="scoring-weight-inputs" class="filter-inputs">
+                                <!-- Dynamically populated based on selected strategy -->
+                            </div>
+                            <div id="weight-sum-display" style="margin-top: 0.75rem; padding: 0.5rem; background: var(--bg-secondary); border-radius: 4px; font-size: 0.9rem;">
+                                Total Weight: <span id="weight-sum-value" style="font-weight: bold;">1.00</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <button type="button" id="toggle-filters" class="btn btn-secondary">
+                        Show Advanced Filters
+                    </button>
+
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary" id="scan-button">
+                            <span class="btn-text">Scan for Opportunities</span>
+                            <span class="spinner" style="display: none;">⏳</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Scan Results -->
+            <div id="results-section" style="display: none;">
+                <h2>📊 Scan Results</h2>
+                
+                <div id="result-card" class="result-card">
+                    <!-- Populated dynamically -->
+                </div>
+
+                <div class="result-actions">
+                    <button id="view-payoff-btn" class="btn btn-primary">
+                        📈 View Payoff Diagram
+                    </button>
+                    <button id="view-pnl-btn" class="btn btn-primary">
+                        💰 View P&L Diagram
+                    </button>
+                    <button id="view-iv-btn" class="btn btn-info">
+                        📊 View IV Chart
+                    </button>
+                    <button id="add-favorite-btn" class="btn btn-secondary">
+                        ⭐ Add to Favorites
+                    </button>
+                </div>
+
+                <!-- Payoff Diagram (initially hidden) -->
+                <div id="payoff-section" style="display: none;">
+                    <h3>Payoff Diagram</h3>
+                    <div id="payoff-chart"></div>
+                    <div id="payoff-stats" class="payoff-stats"></div>
+                </div>
+
+                <!-- P&L Diagram (initially hidden) -->
+                <div id="pnl-section" style="display: none;">
+                    <h3>P&L Diagram with Inflection Points</h3>
+                    <div id="pnl-chart"></div>
+                    <div id="pnl-stats" class="pnl-stats"></div>
+                </div>
+
+                <!-- IV Chart Section (initially hidden) -->
+                <div id="iv-section" style="display: none;">
+                    <h3>📊 Implied Volatility Smile/Skew</h3>
+                    <div class="iv-chart-controls">
+                        <div class="form-group">
+                            <label for="iv-expiry-select">Expiration Date:</label>
+                            <select id="iv-expiry-select">
+                                <!-- Populated dynamically -->
+                            </select>
+                        </div>
+                        <div class="iv-type-toggle">
+                            <label>
+                                <input type="checkbox" id="show-calls-iv" checked>
+                                <span class="toggle-label call-label">Calls</span>
+                            </label>
+                            <label>
+                                <input type="checkbox" id="show-puts-iv" checked>
+                                <span class="toggle-label put-label">Puts</span>
+                            </label>
+                        </div>
+                    </div>
+                    <div id="iv-chart"></div>
+                    <div id="iv-stats" class="iv-stats">
+                        <div class="iv-stat-card">
+                            <span class="iv-stat-label">ATM IV:</span>
+                            <span class="iv-stat-value" id="atm-iv">-</span>
+                        </div>
+                        <div class="iv-stat-card">
+                            <span class="iv-stat-label">IV Range:</span>
+                            <span class="iv-stat-value" id="iv-range">-</span>
+                        </div>
+                        <div class="iv-stat-card">
+                            <span class="iv-stat-label">Skew:</span>
+                            <span class="iv-stat-value" id="iv-skew">-</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- No Results Message -->
+            <div id="no-results" style="display: none;" class="no-results">
+                <p>❌ No opportunities found for this symbol and strategy.</p>
+                <p>Try adjusting your filter criteria or scanning a different symbol.</p>
+            </div>
+        </div>
+
+        <!-- Favorites Tab -->
+        <div id="favorites-tab" class="tab-content">
+            <h2>⭐ Favorite Scan Results</h2>
+            
+            <div class="favorites-actions">
+                <button id="add-favorite-manual" class="btn btn-secondary">+ Add Symbol</button>
+                <button id="refresh-favorites" class="btn btn-primary">🔄 Refresh Prices</button>
+                <button id="scan-all-favorites" class="btn btn-secondary">🔍 Re-scan All</button>
+            </div>
+
+            <div id="favorites-loading" class="loading-indicator" style="display: none;">
+                <span class="spinner">⏳</span> Refreshing prices...
+            </div>
+
+            <div id="favorites-results-container">
+                <!-- Favorites will be displayed as cards -->
+                <div id="favorites-cards" class="favorites-grid">
+                    <!-- Populated dynamically -->
+                </div>
+            </div>
+
+            <div id="no-favorites" class="no-data">
+                <p>No favorites yet. Add scan results from the Scanner tab by clicking "⭐ Add to Favorites".</p>
+            </div>
+        </div>
+
+        <!-- Filter Criteria Tab -->
+        <div id="filters-tab" class="tab-content">
+            <h2>🎯 Filter Criteria Presets</h2>
+            
+            <div class="filter-tab-actions">
+                <button id="create-filter-btn" class="btn btn-primary">+ Create New Filter</button>
+                <button id="export-filters-btn" class="btn btn-secondary">📤 Export All</button>
+                <button id="import-filters-btn" class="btn btn-secondary">📥 Import</button>
+                <input type="file" id="import-file-input" accept=".json" style="display: none;">
+            </div>
+
+            <div class="filters-info">
+                <p>💡 <strong>Tip:</strong> Filter presets include both filter criteria AND scoring weights. Apply them from the Scanner tab dropdown or click "Apply" below.</p>
+            </div>
+
+            <div id="filters-list" class="filters-grid">
+                <!-- Populated dynamically -->
+            </div>
+
+            <div id="no-filters" class="no-data">
+                <p>No saved filters yet. Create custom filter presets for your strategies.</p>
+                <p>Use the "+ Create New Filter" button or save your current scanner settings with the 💾 button.</p>
+            </div>
+
+            <!-- Filter Create/Edit Modal -->
+            <div id="filter-modal" class="modal" style="display: none;">
+                <div class="modal-content modal-large">
+                    <span class="modal-close">&times;</span>
+                    <h3 id="filter-modal-title">Create Filter Preset</h3>
+                    
+                    <form id="filter-form">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="filter-name">Filter Name</label>
+                                <input type="text" id="filter-name" placeholder="e.g., Conservative PMCC" required>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="filter-strategy">Strategy</label>
+                                <select id="filter-strategy" required>
+                                    <!-- Populated dynamically -->
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="filter-modal-sections">
+                            <!-- Filter Criteria Section -->
+                            <div class="filter-modal-section">
+                                <h4>📋 Filter Criteria</h4>
+                                <div id="filter-criteria-inputs" class="filter-inputs">
+                                    <!-- Populated based on selected strategy -->
+                                </div>
+                            </div>
+
+                            <!-- Scoring Weights Section -->
+                            <div class="filter-modal-section">
+                                <h4>⚖️ Scoring Weights <span class="weight-hint">(must sum to 1.0)</span></h4>
+                                <div id="filter-weight-inputs" class="filter-inputs">
+                                    <!-- Populated based on selected strategy -->
+                                </div>
+                                <div id="modal-weight-sum-display" class="weight-sum-display">
+                                    Total Weight: <span id="modal-weight-sum-value">1.00</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="modal-actions">
+                            <button type="submit" class="btn btn-primary">Save Filter</button>
+                            <button type="button" class="btn btn-secondary modal-close">Cancel</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Quick Save Preset Modal -->
+            <div id="quick-save-modal" class="modal" style="display: none;">
+                <div class="modal-content">
+                    <span class="modal-close">&times;</span>
+                    <h3>💾 Save Current Settings as Preset</h3>
+                    
+                    <form id="quick-save-form">
+                        <div class="form-group">
+                            <label for="quick-save-name">Preset Name</label>
+                            <input type="text" id="quick-save-name" placeholder="e.g., My PMCC Settings" required>
+                        </div>
+                        
+                        <p class="quick-save-info">
+                            This will save all current filter criteria and scoring weights for <strong id="quick-save-strategy"></strong>.
+                        </p>
+
+                        <div class="modal-actions">
+                            <button type="submit" class="btn btn-primary">Save Preset</button>
+                            <button type="button" class="btn btn-secondary modal-close">Cancel</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Pipeline Visualization Tab -->
+        <div id="pipeline-tab" class="tab-content">
+            <h2>🔬 Strategy Pipeline Visualization</h2>
+            <p class="pipeline-description">This visualization shows the filtering steps of the latest strategy scan, displaying how many options passed through each stage of the pipeline.</p>
+            
+            <div id="pipeline-controls" class="pipeline-controls">
+                <button id="refresh-pipeline-btn" class="btn btn-primary">🔄 Refresh Pipeline Data</button>
+                <span id="pipeline-timestamp" class="pipeline-timestamp"></span>
+            </div>
+
+            <div id="pipeline-content" style="display: none;">
+                <!-- Strategy Info Header -->
+                <div id="pipeline-strategy-info" class="pipeline-section" style="background: linear-gradient(135deg, var(--primary-color), #3b82f6); color: white;">
+                    <h3 id="pipeline-strategy-name" style="margin: 0; font-size: 1.5rem;">Strategy Name</h3>
+                    <p id="pipeline-symbol-info" style="margin: 0.5rem 0 0 0; opacity: 0.9;"></p>
+                </div>
+
+                <!-- Sankey Diagram -->
+                <div id="pipeline-sankey-section" class="pipeline-section">
+                    <h3>📊 Pipeline Flow (Sankey Diagram)</h3>
+                    <div id="pipeline-sankey-chart" class="pipeline-chart"></div>
+                </div>
+
+                <!-- Funnel Chart -->
+                <div id="pipeline-funnel-section" class="pipeline-section">
+                    <h3>🔽 Filtering Funnel</h3>
+                    <div id="pipeline-funnel-chart" class="pipeline-chart"></div>
+                </div>
+
+                <!-- Step Details Table -->
+                <div id="pipeline-details-section" class="pipeline-section">
+                    <h3>📋 Step-by-Step Details</h3>
+                    <table class="data-table" id="pipeline-table">
+                        <thead>
+                            <tr>
+                                <th>Step</th>
+                                <th>Description</th>
+                                <th>Input</th>
+                                <th>Passed</th>
+                                <th>Filtered</th>
+                                <th>Pass Rate</th>
+                            </tr>
+                        </thead>
+                        <tbody id="pipeline-table-body">
+                            <!-- Populated dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Summary Stats -->
+                <div id="pipeline-summary" class="pipeline-summary">
+                    <div class="summary-card">
+                        <div class="summary-label">Total Options Evaluated</div>
+                        <div class="summary-value" id="total-evaluated">-</div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="summary-label">Final Opportunities</div>
+                        <div class="summary-value positive" id="final-opportunities">-</div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="summary-label">Overall Pass Rate</div>
+                        <div class="summary-value" id="overall-pass-rate">-</div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="summary-label">Most Selective Step</div>
+                        <div class="summary-value negative" id="most-selective-step">-</div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="no-pipeline-data" class="no-data">
+                <p>📭 No pipeline data available.</p>
+                <p>Run a strategy scan first to see the filtering visualization.</p>
+            </div>
+        </div>
+
+        <!-- AI Assistant Tab -->
+        <div id="ai-assistant-tab" class="tab-content">
+            <h2>🤖 AI Assistant - Ask Questions</h2>
+            <p class="ai-description">Ask questions about options trading, strategy analysis, or any market-related topics. Get responses from multiple AI models simultaneously.</p>
+            
+            <div class="ai-form-section">
+                <form id="ai-question-form">
+                    <!-- Question Bank Section -->
+                    <div class="question-bank-section">
+                        <div class="section-header">
+                            <h4>📚 Question Bank</h4>
+                            <button type="button" class="btn btn-sm btn-secondary" id="manage-questions-btn" title="Manage Questions">
+                                ⚙️ Manage
+                            </button>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group flex-grow">
+                                <label for="question-bank-select">Load Saved Question</label>
+                                <select id="question-bank-select">
+                                    <option value="">-- Select a saved question --</option>
+                                    <!-- Populated dynamically -->
+                                </select>
+                            </div>
+                            <div class="form-group btn-group-vertical">
+                                <button type="button" class="btn btn-sm btn-primary" id="load-question-btn" title="Load Selected Question">
+                                    📥 Load
+                                </button>
+                                <button type="button" class="btn btn-sm btn-success" id="save-question-btn" title="Save Current Question">
+                                    💾 Save
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="ai-question">Your Question/Prompt</label>
+                        <textarea 
+                            id="ai-question" 
+                            rows="4" 
+                            placeholder="Ask any question about options trading, strategies, market analysis, or request specific analysis...&#10;&#10;Examples:&#10;• What are the key risks of a PMCC strategy?&#10;• Explain the Greeks for options trading&#10;• What happens to my position if volatility increases?&#10;• Compare Iron Condor vs Jade Lizard strategies"
+                            required
+                        ></textarea>
+                    </div>
+                    
+                    <div class="ai-context-section">
+                        <h4>Optional Context</h4>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="ai-symbol">Symbol (Optional)</label>
+                                <input type="text" id="ai-symbol" placeholder="e.g., AAPL, TSLA">
+                            </div>
+                            <div class="form-group">
+                                <label for="ai-strategy">Strategy Context (Optional)</label>
+                                <select id="ai-strategy">
+                                    <option value="">No specific strategy</option>
+                                    <!-- Populated dynamically -->
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- External Context Section -->
+                    <div class="external-context-section">
+                        <div class="section-header">
+                            <h4>🌐 External Context (API Data)</h4>
+                            <button type="button" class="btn btn-sm btn-secondary" id="manage-contexts-btn" title="Manage External Contexts">
+                                ⚙️ Manage
+                            </button>
+                        </div>
+                        <p class="section-description">Fetch external data from APIs to include as context. Uses $SYMBOL as a placeholder.</p>
+                        <div class="form-row">
+                            <div class="form-group flex-grow">
+                                <label for="external-context-select">Select External Context</label>
+                                <select id="external-context-select">
+                                    <option value="">-- No external context --</option>
+                                    <!-- Populated dynamically -->
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <button type="button" class="btn btn-sm btn-info" id="fetch-context-btn" title="Fetch Data">
+                                    🔄 Fetch Data
+                                </button>
+                            </div>
+                        </div>
+                        <div id="external-context-preview" class="context-preview" style="display: none;">
+                            <div class="context-preview-header">
+                                <span>📋 Fetched Data Preview</span>
+                                <button type="button" class="btn btn-xs btn-secondary" id="clear-context-btn">✕ Clear</button>
+                            </div>
+                            <pre id="external-context-data"></pre>
+                        </div>
+                    </div>
+
+                    <div class="ai-model-selection">
+                        <h4>Select AI Models</h4>
+                        <div class="model-selection-grid">
+                            <!-- Grok Model Selection -->
+                            <div class="model-selection-item">
+                                <label class="model-checkbox">
+                                    <input type="checkbox" id="model-grok" value="grok" checked>
+                                    <span class="model-icon">🤖</span>
+                                    <span class="model-name">Grok (xAI)</span>
+                                </label>
+                                <select id="grok-model-select" class="model-version-select">
+                                    <option value="grok-4">Grok 4 (Latest)</option>
+                                    <option value="grok-4-0709">Grok 4 (0709)</option>
+                                    <option value="grok-3">Grok 3</option>
+                                    <option value="grok-3-mini">Grok 3 Mini</option>
+                                    <option value="grok-2-vision-1212">Grok 2 Vision</option>
+                                </select>
+                            </div>
+                            
+                            <!-- Claude Model Selection -->
+                            <div class="model-selection-item">
+                                <label class="model-checkbox">
+                                    <input type="checkbox" id="model-claude" value="claude" checked>
+                                    <span class="model-icon">🧠</span>
+                                    <span class="model-name">Claude (Anthropic)</span>
+                                </label>
+                                <select id="claude-model-select" class="model-version-select">
+                                    <option value="claude-sonnet-4-20250514">Claude Sonnet 4</option>
+                                    <option value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet</option>
+                                    <option value="claude-3-5-haiku-20241022">Claude 3.5 Haiku</option>
+                                    <option value="claude-3-opus-20240229">Claude 3 Opus</option>
+                                </select>
+                            </div>
+                            
+                            <!-- Gemini Model Selection -->
+                            <div class="model-selection-item">
+                                <label class="model-checkbox">
+                                    <input type="checkbox" id="model-gemini" value="gemini" checked>
+                                    <span class="model-icon">💎</span>
+                                    <span class="model-name">Gemini (Google)</span>
+                                </label>
+                                <select id="gemini-model-select" class="model-version-select">
+                                    <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
+                                    <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
+                                    <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
+                                    <option value="gemini-pro">Gemini Pro</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Prompt Preview Panel -->
+                    <div class="prompt-preview-section" id="prompt-preview-section" style="display: none;">
+                        <div class="section-header">
+                            <h4>📝 Prompt Preview</h4>
+                            <button type="button" class="btn btn-xs btn-secondary" id="toggle-prompt-preview">Show/Hide</button>
+                        </div>
+                        <div id="prompt-preview-content" class="prompt-preview-content">
+                            <div class="prompt-preview-main">
+                                <strong>Main Prompt:</strong>
+                                <pre id="prompt-main-text"></pre>
+                            </div>
+                            <div class="prompt-preview-context" id="prompt-context-section" style="display: none;">
+                                <strong>Context Data:</strong>
+                                <pre id="prompt-context-text"></pre>
+                            </div>
+                            <div class="prompt-preview-external" id="prompt-external-section" style="display: none;">
+                                <strong>📎 External Context (JSON Attachment):</strong>
+                                <pre id="prompt-external-text"></pre>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary" id="ask-ai-button">
+                            <span class="btn-text">🚀 Ask AI Models</span>
+                            <span class="spinner" style="display: none;">⏳</span>
+                        </button>
+                        <button type="button" class="btn btn-secondary" id="clear-ai-form">
+                            🗑️ Clear
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- AI Responses Section -->
+            <div id="ai-responses-section" style="display: none;">
+                <h3>💬 AI Responses</h3>
+                <div class="ai-question-display">
+                    <strong>Your Question:</strong>
+                    <p id="displayed-question"></p>
+                </div>
+                
+                <div id="ai-responses-container" class="ai-responses-grid">
+                    <!-- Grok Response -->
+                    <div class="ai-response-card" id="grok-response-card">
+                        <div class="ai-response-header grok-header">
+                            <span class="ai-icon">🤖</span>
+                            <span class="ai-name">Grok (xAI)</span>
+                            <span class="ai-status" id="grok-status">Waiting...</span>
+                        </div>
+                        <div class="ai-response-body" id="grok-response">
+                            <div class="ai-loading">Waiting for response...</div>
+                        </div>
+                    </div>
+
+                    <!-- Claude Response -->
+                    <div class="ai-response-card" id="claude-response-card">
+                        <div class="ai-response-header claude-header">
+                            <span class="ai-icon">🧠</span>
+                            <span class="ai-name">Claude (Anthropic)</span>
+                            <span class="ai-status" id="claude-status">Waiting...</span>
+                        </div>
+                        <div class="ai-response-body" id="claude-response">
+                            <div class="ai-loading">Waiting for response...</div>
+                        </div>
+                    </div>
+
+                    <!-- Gemini Response -->
+                    <div class="ai-response-card" id="gemini-response-card">
+                        <div class="ai-response-header gemini-header">
+                            <span class="ai-icon">💎</span>
+                            <span class="ai-name">Gemini (Google)</span>
+                            <span class="ai-status" id="gemini-status">Waiting...</span>
+                        </div>
+                        <div class="ai-response-body" id="gemini-response">
+                            <div class="ai-loading">Waiting for response...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- No API Keys Message -->
+            <div id="ai-setup-notice" class="ai-setup-notice">
+                <h4>⚙️ AI API Configuration</h4>
+                <p>To use the AI Assistant feature, configure your API keys in the backend:</p>
+                <ul>
+                    <li><strong>Grok:</strong> Set <code>XAI_API_KEY</code> environment variable</li>
+                    <li><strong>Claude:</strong> Set <code>ANTHROPIC_API_KEY</code> environment variable</li>
+                    <li><strong>Gemini:</strong> Set <code>GEMINI_API_KEY</code> environment variable</li>
+                </ul>
+                <p class="setup-note">Models without configured API keys will show placeholder responses.</p>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <p>&copy; 2025 Multi-Strategy Options Scanner | Powered by Alpha Vantage</p>
+        </footer>
+    </div>
+
+    <!-- Toast Notifications -->
+    <div id="toast-container"></div>
+
+    <!-- Question Bank Management Modal -->
+    <div id="question-modal" class="modal" style="display: none;">
+        <div class="modal-content modal-lg">
+            <div class="modal-header">
+                <h3>📚 Question Bank Manager</h3>
+                <button type="button" class="modal-close" onclick="closeQuestionModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="question-list-section">
+                    <h4>Saved Questions</h4>
+                    <div id="question-list" class="item-list">
+                        <!-- Populated dynamically -->
+                    </div>
+                </div>
+                <hr>
+                <div class="question-form-section">
+                    <h4 id="question-form-title">Add New Question</h4>
+                    <form id="question-management-form">
+                        <input type="hidden" id="edit-question-id">
+                        <div class="form-group">
+                            <label for="question-name">Question Name</label>
+                            <input type="text" id="question-name" placeholder="e.g., PMCC Risk Analysis" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="question-text">Question/Prompt Text</label>
+                            <textarea id="question-text" rows="4" placeholder="Enter the question or prompt text. Use $SYMBOL as placeholder for stock symbols." required></textarea>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="question-category">Category</label>
+                                <select id="question-category">
+                                    <option value="general">General</option>
+                                    <option value="strategy">Strategy</option>
+                                    <option value="greeks">Greeks</option>
+                                    <option value="analysis">Analysis</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="question-description">Description (Optional)</label>
+                                <input type="text" id="question-description" placeholder="Brief description">
+                            </div>
+                        </div>
+                        <div class="form-actions">
+                            <button type="submit" class="btn btn-primary">💾 Save Question</button>
+                            <button type="button" class="btn btn-secondary" onclick="resetQuestionForm()">🔄 Reset</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- External Context Management Modal -->
+    <div id="context-modal" class="modal" style="display: none;">
+        <div class="modal-content modal-lg">
+            <div class="modal-header">
+                <h3>🌐 External Context Manager</h3>
+                <button type="button" class="modal-close" onclick="closeContextModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="context-list-section">
+                    <h4>Configured API Contexts</h4>
+                    <div id="context-list" class="item-list">
+                        <!-- Populated dynamically -->
+                    </div>
+                </div>
+                <hr>
+                <div class="context-form-section">
+                    <h4 id="context-form-title">Add New External Context</h4>
+                    <form id="context-management-form">
+                        <input type="hidden" id="edit-context-id">
+                        <div class="form-group">
+                            <label for="context-name">Context Name</label>
+                            <input type="text" id="context-name" placeholder="e.g., Alpha Vantage Quote" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="curl-template">Curl Template</label>
+                            <textarea id="curl-template" rows="3" placeholder='curl -s "https://api.example.com/data?symbol=$SYMBOL&apikey=YOUR_KEY"' required></textarea>
+                            <small class="form-help">Use <code>$SYMBOL</code> as placeholder for the stock symbol. The curl command will be executed server-side.</small>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="response-processor">Response Type</label>
+                                <select id="response-processor">
+                                    <option value="json">JSON</option>
+                                    <option value="text">Plain Text</option>
+                                    <option value="xml">XML</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="cache-ttl">Cache Duration (seconds)</label>
+                                <input type="number" id="cache-ttl" value="300" min="0" max="3600">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="context-description">Description (Optional)</label>
+                            <input type="text" id="context-description" placeholder="Brief description of this API context">
+                        </div>
+                        <div class="form-actions">
+                            <button type="submit" class="btn btn-primary">💾 Save Context</button>
+                            <button type="button" class="btn btn-secondary" onclick="resetContextForm()">🔄 Reset</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Save Question Quick Modal -->
+    <div id="save-question-modal" class="modal" style="display: none;">
+        <div class="modal-content modal-sm">
+            <div class="modal-header">
+                <h3>💾 Save Question to Bank</h3>
+                <button type="button" class="modal-close" onclick="closeSaveQuestionModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="save-question-quick-form">
+                    <div class="form-group">
+                        <label for="save-question-name">Question Name</label>
+                        <input type="text" id="save-question-name" placeholder="Give this question a name" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="save-question-category">Category</label>
+                        <select id="save-question-category">
+                            <option value="general">General</option>
+                            <option value="strategy">Strategy</option>
+                            <option value="greeks">Greeks</option>
+                            <option value="analysis">Analysis</option>
+                        </select>
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary">💾 Save</button>
+                        <button type="button" class="btn btn-secondary" onclick="closeSaveQuestionModal()">Cancel</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript -->
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>

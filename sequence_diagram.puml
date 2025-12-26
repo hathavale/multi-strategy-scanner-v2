@@ -1,0 +1,125 @@
+@startuml Multi-Strategy Options Scanner Sequence Diagram
+
+title Multi-Strategy Options Scanner - Complete Flow
+
+actor User
+participant "Frontend\n(Browser)" as Frontend
+participant "Flask App\n(app.py)" as Flask
+participant "Strategy\n(e.g. PMCC)" as Strategy
+participant "Utils\n(calculations.py)" as Utils
+participant "Alpha Vantage\nAPI" as AlphaAPI
+participant "Database\n(PostgreSQL)" as DB
+
+== Application Initialization ==
+User -> Frontend: Load webpage
+Frontend -> Flask: GET /
+Flask -> DB: get_all_strategies()
+DB --> Flask: Return 8 strategies
+Flask --> Frontend: Render index.html with strategies
+Frontend -> Flask: GET /api/strategies
+Flask -> DB: get_all_strategies()
+DB --> Flask: Strategy list
+Flask --> Frontend: JSON strategy data
+Frontend -> Frontend: populateStrategyDropdowns()
+Frontend --> User: Show strategy selector
+
+== Strategy Scan Process ==
+User -> Frontend: 1. Enter symbol (AAPL)\n2. Select strategy (PMCC)\n3. Set filter criteria\n4. Click "Scan"
+
+Frontend -> Frontend: handleScan()
+Frontend -> Frontend: Validate form data
+Frontend -> Flask: POST /api/scan\n{symbol: "AAPL", strategy_id: "pmcc", filter_criteria: {...}}
+
+Flask -> Flask: scan_strategy()
+Flask -> Flask: Validate request data
+Flask -> Flask: Get STRATEGIES['pmcc']
+Flask -> Strategy: scan(symbol, filter_criteria, api_key, session)
+
+== Strategy Execution Flow ==
+Strategy -> Utils: get_stock_price(symbol, api_key, session)
+Utils -> AlphaAPI: GET /query?function=GLOBAL_QUOTE&symbol=AAPL
+AlphaAPI --> Utils: {"Global Quote": {"05. price": "272.41"}}
+Utils --> Strategy: stock_price = 272.41
+
+Strategy -> Utils: get_risk_free_rate(api_key, session)
+Utils -> AlphaAPI: GET /query?function=TREASURY_YIELD
+AlphaAPI --> Utils: {"data": [{"value": "4.96"}]}
+Utils --> Strategy: risk_free_rate = 0.0496
+
+Strategy -> Utils: get_options_data(symbol, api_key, session)
+Utils -> AlphaAPI: GET /query?function=REALTIME_OPTIONS&symbol=AAPL&require_greeks=true
+AlphaAPI --> Utils: {"data": [{"contractID": "AAPL251114C00110000", "strike": "110.00", "delta": "0.99346", ...}, ...]}
+Utils --> Strategy: options_data (2836 options)
+
+Strategy -> Utils: parse_options_chain(options_data)
+Utils -> Utils: Parse & group by expiration\nCalculate premium = (bid + ask) / 2\nExtract Greeks (delta, gamma, theta, vega)
+Utils --> Strategy: options_by_expiry {datetime: [options]}
+
+== PMCC Strategy Logic ==
+Strategy -> Strategy: Filter long calls\n(delta 0.60-0.95, DTE 150+)
+Strategy -> Strategy: Filter short calls\n(delta 0.15-0.50, DTE 10-60)
+Strategy -> Strategy: Find compatible combinations\n(short_strike > long_strike)
+
+alt Best PMCC Found
+    Strategy -> Strategy: Calculate metrics:\n- Net credit/debit\n- ROC %\n- Probability of profit\n- Max profit/loss\n- Breakeven points
+    Strategy -> Strategy: calculate_payoff(stock_prices)
+    Strategy -> Strategy: Score opportunity\n(credit 25%, ROC 25%, POP 30%, volume 20%)
+    Strategy --> Flask: Return best PMCC opportunity
+    
+    Flask -> DB: save_scan_results([result])
+    DB --> Flask: Results saved
+    Flask --> Frontend: {"success": true, "data": {...}}
+    
+    Frontend -> Frontend: displayResult(data)
+    Frontend -> Frontend: Show result card with metrics
+    Frontend --> User: Display opportunity details
+    
+    == Optional: Generate Payoff Diagram ==
+    User -> Frontend: Click "View Payoff Diagram"
+    Frontend -> Flask: POST /api/payoff\n{strategy_data, stock_prices}
+    Flask -> Strategy: calculate_payoff(stock_prices, params)
+    Strategy -> Strategy: Calculate P&L for each price point
+    Strategy --> Flask: Return payoff data points
+    Flask --> Frontend: {"success": true, "payoff_data": [...]}
+    Frontend -> Frontend: Create Plotly chart
+    Frontend --> User: Display interactive payoff diagram
+
+else No Opportunity Found
+    Strategy --> Flask: Return None
+    Flask --> Frontend: {"success": true, "data": null}
+    Frontend -> Frontend: Show "No opportunities found"
+    Frontend --> User: Display no results message
+end
+
+== Add to Favorites (Optional) ==
+User -> Frontend: Click "Add to Favorites"
+Frontend -> Flask: POST /api/favorites\n{symbol, strategy_data, notes}
+Flask -> DB: add_favorite(favorite_data)
+DB --> Flask: New favorite ID
+Flask --> Frontend: {"success": true}
+Frontend -> Frontend: Show success toast
+Frontend --> User: Confirmation message
+
+== Error Handling ==
+alt API Error
+    AlphaAPI --> Utils: Error response
+    Utils --> Strategy: None/Error
+    Strategy --> Flask: None
+    Flask --> Frontend: {"success": true, "data": null}
+end
+
+alt Database Error
+    DB --> Flask: Exception
+    Flask --> Frontend: {"success": false, "error": "message"}
+    Frontend -> Frontend: Show error toast
+    Frontend --> User: Error message
+end
+
+alt Validation Error
+    Flask -> Flask: Missing required fields
+    Flask --> Frontend: {"success": false, "error": "Missing fields"}
+    Frontend -> Frontend: Show validation message
+    Frontend --> User: Form validation error
+end
+
+@enduml
