@@ -1,10 +1,18 @@
 #!/usr/bin/env bash
-# Exit on error
+# Exit on error and print each command
 set -o errexit
+set -o xtrace
 
-# Install system dependencies
-apt-get update && apt-get install -y build-essential gfortran
+echo "=== Starting build ==="
+echo "Current directory: $(pwd)"
+echo "Listing files:"
+ls -la
 
-# Install Python dependencies
+echo "=== Python version ==="
+python --version
+
+echo "=== Installing Python dependencies ==="
 pip install --upgrade pip
 pip install -r requirements.txt
+
+echo "=== Build complete ==="
