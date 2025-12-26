@@ -51,11 +51,15 @@ from strategies.bwb_call import BrokenWingButterflyCallStrategy
 from strategies.iron_condor import IronCondorStrategy
 from utils.pipeline_tracker import get_latest_pipeline_data
 
+# Get absolute paths for templates and static files
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+TEMPLATE_DIR = os.path.join(BASE_DIR, 'frontend', 'templates')
+STATIC_DIR = os.path.join(BASE_DIR, 'frontend', 'static')
 
 # Initialize Flask app
 app = Flask(__name__, 
-            template_folder='../frontend/templates',
-            static_folder='../frontend/static')
+            template_folder=TEMPLATE_DIR,
+            static_folder=STATIC_DIR)
 app.config.from_object(current_config)
 
 # Enable CORS for development
